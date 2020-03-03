@@ -21,7 +21,7 @@
 #define TCAADDR 0x70 //I2C multiplexor base address
 #define TFT_DC 9  //Touchscreen data/command selector
 #define TFT_CS 10 //Touchscreen chip selector
-
+// FSM States
 #define STAND_BY  0
 #define INIT      1
 #define MEASURE   2
@@ -30,6 +30,11 @@
 #define SETTINGS  5
 #define SHUT_DOWN 6
 #define ALARM     7
+//Pinout
+#define BUZZER_PIN      2
+#define KILL_PIN        3
+#define INTERRUPT_PIN   5
+#define LOWBATTERY_PIN  6
 
 /*////// GLOBALS \\\\\\*/
 Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC);
@@ -48,6 +53,7 @@ int c = 0;
 int color = 64800;
 
 int state = 1;
+int last_state = 1;
 
 unsigned long current_millis = 0;
 unsigned long refresh_interval = 500;
@@ -56,10 +62,11 @@ unsigned long previous_refresh_millis = 0;
 unsigned long testing_time = 10000;
 unsigned long testing_interval = 500;
 unsigned long previous_testing_millis = 0;
+
 float starting_pressure = 0;
 float pressure_leak = 0;
-float max_leak = 1;
-bool result = false;
+float max_leak = 1.00;
+float max_pressure = 16.00;
 unsigned long progress = 0;
 
 
@@ -141,9 +148,10 @@ void loop() {
     DP = random(0,10);
     tft.setCursor(190, 20);
     tft.print(DP);
-    // if (DP > max_pressure){
-    //   state = ALARM;
-    // }
+    if (DP > max_pressure){
+      last_state = state;
+      state = ALARM;
+    }
   }
   else if (current_millis - previous_refresh_millis < 0){
     previous_refresh_millis = 0;
@@ -264,7 +272,6 @@ void loop() {
               tft.setCursor(290, 42);
               tft.setTextColor(ILI9341_WHITE);
               tft.println("X");
-              result = false;
             }
             else
             {
@@ -272,7 +279,6 @@ void loop() {
               tft.setCursor(290, 42);
               tft.setTextColor(ILI9341_WHITE);
               tft.println("OK");
-              result = true;
             }
             state = RESULTS;
             progress = 0;
@@ -355,7 +361,11 @@ void loop() {
     case SHUT_DOWN:
           break;
     case ALARM:
-          
+          tone(BUZZER_PIN, 420,250);
+          if (ts.touched()){
+            state = last_state;
+            noTone(BUZZER_PIN);
+          }
           break; 
     default:
           break;
